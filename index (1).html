@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ПРИЁМНИК</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; }
+  body {
+    background:#060505;
+    color:#c9c2a8;
+    font-family:'Courier New', monospace;
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+    user-select:none;
+  }
+  /* лесенка сканлайнов поверх всего */
+  body::after {
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:50;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.25) 0 1px, transparent 1px 3px);
+    mix-blend-mode:multiply;
+  }
+  /* виньетка */
+  body::before {
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:49;
+    background:radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.85) 100%);
+  }
+  @keyframes flicker {
+    0%,100% { opacity:1; } 92% { opacity:1; } 93% { opacity:.4; }
+    94% { opacity:1; } 96% { opacity:.6; } 97% { opacity:1; }
+  }
+  body.flick { animation:flicker .35s; }
+
+  #radio {
+    width:min(720px, 94vw);
+    background:linear-gradient(160deg,#1c1712,#0d0a08 70%);
+    border:1px solid #3a2f22;
+    border-radius:10px;
+    padding:26px 30px 30px;
+    box-shadow:0 30px 80px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.05);
+    animation:flicker 8s infinite;
+  }
+  .brand {
+    font-size:11px; letter-spacing:3px; color:#6b5f45;
+    text-transform:uppercase; margin-bottom:18px;
+    display:flex; justify-content:space-between;
+  }
+  .brand .led {
+    width:9px; height:9px; border-radius:50%;
+    background:#330b08; box-shadow:none; transition:.3s;
+  }
+  .brand .led.on {
+    background:#ff2a1a;
+    box-shadow:0 0 12px #ff2a1a, 0 0 30px rgba(255,42,26,.5);
+    animation:ledPulse 2.2s infinite;
+  }
+  @keyframes ledPulse { 0%,100%{opacity:1} 50%{opacity:.55} }
+
+  /* шкала частот */
+  #dial {
+    position:relative; height:56px; margin-bottom:14px;
+    background:#0a0806; border:1px solid #2c2318; border-radius:4px;
+    overflow:hidden;
+  }
+  #ticks { position:absolute; inset:0; }
+  #needle {
+    position:absolute; top:0; bottom:0; width:2px; left:30%;
+    background:#ff3b2c; box-shadow:0 0 8px #ff3b2c;
+    transition:left .05s linear;
+  }
+  .freqlabel {
+    position:absolute; bottom:4px; transform:translateX(-50%);
+    font-size:10px; color:#7d6f4f;
+  }
+
+  /* дисплей */
+  #screen {
+    background:#0d0f08;
+    border:1px solid #26301c; border-radius:4px;
+    padding:14px 18px; margin-bottom:16px;
+    font-size:34px; letter-spacing:6px;
+    color:#9dff6a; text-shadow:0 0 10px rgba(157,255,106,.6);
+    display:flex; align-items:baseline; gap:12px;
+    position:relative; overflow:hidden;
+  }
+  #screen::after {
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background:linear-gradient(transparent 50%, rgba(0,0,0,.35) 50%);
+    background-size:100% 4px;
+  }
+  #screen .mhz { font-size:14px; letter-spacing:2px; color:#5c8a44; }
+  #screen .cursor { animation:blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity:0; } }
+
+  #status {
+    font-size:11px; letter-spacing:3px; color:#6b5f45; margin-bottom:16px;
+    min-height:14px; text-transform:uppercase;
+  }
+  #status.warn { color:#ff3b2c; text-shadow:0 0 8px rgba(255,59,44,.7); }
+
+  /* ряд управления */
+  #controls { display:flex; align-items:center; gap:26px; flex-wrap:wrap; }
+  #knob {
+    width:110px; height:110px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #3d342a, #171310 70%);
+    border:2px solid #3a2f22;
+    box-shadow:0 8px 20px rgba(0,0,0,.8), inset 0 2px 4px rgba(255,255,255,.08);
+    cursor:grab; position:relative; flex-shrink:0;
+  }
+  #knob:active { cursor:grabbing; }
+  #knob .mark {
+    position:absolute; top:8px; left:50%; width:4px; height:26px;
+    background:#c9c2a8; transform:translateX(-50%); border-radius:2px;
+    box-shadow:0 0 6px rgba(201,194,168,.5);
+  }
+  #vu { flex:1; min-width:160px; height:60px; background:#0a0806;
+         border:1px solid #2c2318; border-radius:4px; }
+  #power {
+    background:#1a120c; color:#c9c2a8; border:1px solid #3a2f22;
+    font-family:inherit; font-size:11px; letter-spacing:2px;
+    padding:12px 18px; border-radius:4px; cursor:pointer;
+    text-transform:uppercase; transition:.2s;
+  }
+  #power:hover { background:#2a1d12; }
+
+  #hint { margin-top:18px; font-size:10px; color:#4d4232; letter-spacing:1px; line-height:1.7; }
+  #direct {
+    background:#0d0f08; border:1px solid #26301c; border-radius:4px;
+    color:#9dff6a; font-family:inherit; font-size:16px; letter-spacing:4px;
+    padding:8px 12px; width:170px; outline:none;
+    text-shadow:0 0 8px rgba(157,255,106,.5);
+  }
+  /* внезапное сообщение поверх */
+  #overlay {
+    position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+    z-index:60; pointer-events:none;
+    background:rgba(0,0,0,.55);
+  }
+  #overlay span {
+    font-size:clamp(22px, 5vw, 52px); letter-spacing:12px; color:#b3130b;
+    text-shadow:0 0 20px rgba(179,19,11,.9);
+    animation:shake .09s infinite;
+  }
+  @keyframes shake {
+    0%{transform:translate(0,0)} 25%{transform:translate(2px,-1px)}
+    50%{transform:translate(-2px,1px)} 75%{transform:translate(1px,2px)} 100%{transform:translate(0,0)}
+  }
+</style>
+</head>
+<body>
+
+<div id="radio">
+  <div class="brand">
+    <span>УКВ-ПРИЁМНИК «ВЕГА-304» · сер. 1978 · зав. № 0447</span>
+    <span class="led" id="led"></span>
+  </div>
+
+  <div id="dial">
+    <canvas id="ticks"></canvas>
+    <div id="needle"></div>
+  </div>
+
+  <div id="screen">
+    <span id="freq">--.--</span><span class="mhz">МГЦ</span><span class="cursor">_</span>
+  </div>
+
+  <div id="status">ПИТАНИЕ ОТКЛЮЧЕНО</div>
+
+  <div id="controls">
+    <div id="knob"><div class="mark"></div></div>
+    <canvas id="vu"></canvas>
+    <input id="direct" placeholder="04.18" maxlength="6">
+    <button id="power">Питание</button>
+  </div>
+
+  <div id="hint">
+    КРУТИТЕ РУЧКУ (мышь / стрелки ← →) или введите частоту и нажмите Enter.<br>
+    ДИАПАЗОН ПРИЁМА: 0.00 — 15.00 МГЦ · НАСТРОЙКА ТОЛЬКО ВПЛОТНУЮ, СИГНАЛ СЛАБЫЙ
+  </div>
+</div>
+
+<div id="overlay"><span></span></div>
+
+<audio id="t1" src="tracks/track1.mp3" loop preload="auto"></audio>
+<audio id="t2" src="tracks/track2.mp3" loop preload="auto"></audio>
+<audio id="t3" src="tracks/track3.mp3" loop preload="auto"></audio>
+
+<script>
+(function(){
+  'use strict';
+
+  // ---------- ДАННЫЕ ----------
+  var RANGE_MIN = 0.00, RANGE_MAX = 15.00;
+  var TOLERANCE = 0.15;          // полоса захвата
+  var LOCK      = 0.03;          // идеальная настройка
+  var stations = [
+    { freq: 12.47, el: document.getElementById('t1') },
+    { freq: 1.67,  el: document.getElementById('t2') },
+    { freq: 4.18,  el: document.getElementById('t3') }
+  ];
+  var DEAD_FREQ = 9.11;          // особая точка на шкале...
+
+  // ---------- СОСТОЯНИЕ ----------
+  var powered = false;
+  var tuned = 7.50;              // стрелка по центру мёртвого эфира
+  var ctx = null, noiseGain = null, muffle = null, analyser = null, master = null;
+  var trackSrcs = [];
+
+  var led = document.getElementById('led');
+  var freqEl = document.getElementById('freq');
+  var statusEl = document.getElementById('status');
+  var needle = document.getElementById('needle');
+  var direct = document.getElementById('direct');
+  var overlay = document.getElementById('overlay');
+  var overlayText = overlay.querySelector('span');
+
+  // ---------- АУДИО ----------
+  function initAudio(){
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // шум: белый, зацикленный
+    var len = ctx.sampleRate * 2;
+    var buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    var data = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    var noise = ctx.createBufferSource();
+    noise.buffer = buf; noise.loop = true;
+
+    muffle = ctx.createBiquadFilter();
+    muffle.type = 'lowpass';
+    muffle.frequency.value = 18000;
+
+    noiseGain = ctx.createGain();
+    noiseGain.gain.value = 0;
+
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 64;
+    master = ctx.createGain();
+    master.gain.value = 0.9;
+
+    noise.connect(muffle);
+    muffle.connect(noiseGain);
+    noiseGain.connect(master);
+    master.connect(analyser);
+    analyser.connect(ctx.destination);
+    noise.start();
+
+    // подключаем треки в ту же цепочку
+    stations.forEach(function(s){
+      try {
+        var src = ctx.createMediaElementSource(s.el);
+        var g = ctx.createGain();
+        g.gain.value = 0;
+        src.connect(g); g.connect(master);
+        trackSrcs.push(g);
+      } catch(e){ trackSrcs.push(null); }
+      s.el.addEventListener('error', function(){
+        setStatus('НОСИТЕЛЬ НЕ ОБНАРУЖЕН: tracks/ НЕ НАЙДЕН', true);
+      });
+    });
+  }
+
+  // ---------- УТИЛИТЫ ----------
+  function fmt(f){ return f.toFixed(2); }
+
+  function nearest(){
+    var best = null, bd = 1e9;
+    stations.forEach(function(s){
+      var d = Math.abs(tuned - s.freq);
+      if (d < bd){ bd = d; best = s; }
+    });
+    var dDead = Math.abs(tuned - DEAD_FREQ);
+    return { station: best, dist: bd, dead: dDead };
+  }
+
+  function setStatus(t, warn){
+    statusEl.textContent = t;
+    statusEl.classList.toggle('warn', !!warn);
+  }
+
+  // ---------- ГЛАВНЫЙ ЦИКЛ ----------
+  function update(){
+    if (!powered){
+      requestAnimationFrame(update);
+      return;
+    }
+    var n = nearest();
+
+    // громкость шума и трека по отстройке
+    var staticVol = 0.16;
+    var trackVol = 0;
+    if (n.dist < LOCK){
+      staticVol = 0.005;
+      trackVol = 1.0;
+    } else if (n.dist < TOLERANCE){
+      var k = 1 - (n.dist - LOCK) / (TOLERANCE - LOCK);
+      staticVol = 0.16 * (1 - k) + 0.005;
+      trackVol = k * 0.9;
+      muffle.frequency.value = 800 + k * 15000;
+    } else {
+      muffle.frequency.value = 18000;
+    }
+
+    // мёртвая точка давит всё
+    if (n.dead < 0.3){
+      var kd = 1 - n.dead / 0.3;
+      staticVol = Math.min(0.35, staticVol + kd * 0.25);
+      trackVol *= (1 - kd);
+    }
+
+    noiseGain.gain.setTargetAtTime(staticVol, ctx.currentTime, 0.08);
+
+    stations.forEach(function(s, i){
+      var g = trackSrcs[i];
+      var target = (s === n.station && n.dist < TOLERANCE) ? trackVol : 0;
+      if (g) g.gain.setTargetAtTime(target, ctx.currentTime, 0.1);
+      if (target > 0.05){
+        if (s.el.paused) s.el.play().catch(function(){});
+      } else if (!s.el.paused && s.el.volume <= 0.01){
+        s.el.pause();
+      }
+    });
+
+    // индикация
+    freqEl.textContent = fmt(tuned);
+    needle.style.left = (tuned - RANGE_MIN) / (RANGE_MAX - RANGE_MIN) * 100 + '%';
+
+    if (n.dist < LOCK)      setStatus('СИГНАЛ УСТОЙЧИВ · ' + fmt(n.station.freq) + ' МГЦ');
+    else if (n.dist < TOLERANCE){
+      setStatus('ПОЧТИ НАСТРОЕНО...'); 
+    }
+    else if (n.dead < 0.05) setStatus('ТУТ НИЧЕГО НЕТ. ОТОЙДИТЕ ОТ ОКНА.', true);
+    else                    setStatus('НЕТ СИГНАЛА');
+
+    drawVU();
+    requestAnimationFrame(update);
+  }
+
+  // ---------- VU-метр ----------
+  var vu = document.getElementById('vu');
+  var vctx = vu.getContext('2d');
+  var levels = new Array(12).fill(0);
+  function drawVU(){
+    var w = vu.width = vu.clientWidth, h = vu.height = vu.clientHeight;
+    var n = nearest();
+    var energy = 0.06 + Math.min(0.2, 0.2 * (1 - n.dist / TOLERANCE));
+    vctx.clearRect(0,0,w,h);
+    var bw = w / levels.length;
+    for (var i = 0; i < levels.length; i++){
+      var target = Math.random() < 0.15 ? 0 : energy * (0.4 + Math.random() * 0.6);
+      levels[i] += (target - levels[i]) * 0.3;
+      var bh = Math.max(2, levels[i] * h * 3);
+      var green = bh > h * 0.55 ? '#ff3b2c' : '#9dff6a';
+      vctx.fillStyle = green;
+      vctx.shadowColor = green; vctx.shadowBlur = 6;
+      vctx.fillRect(i * bw + 2, h - bh, bw - 4, bh);
+    }
+    vctx.shadowBlur = 0;
+  }
+
+  // ---------- ШКАЛА ----------
+  function drawTicks(){
+    var c = document.getElementById('ticks');
+    var d = document.getElementById('dial');
+    var w = c.width = d.clientWidth, h = c.height = d.clientHeight;
+    var g = c.getContext('2d');
+    g.strokeStyle = '#5c4f38'; g.fillStyle = '#7d6f4f';
+    g.font = '10px Courier New'; g.textAlign = 'center';
+    for (var f = RANGE_MIN; f <= RANGE_MAX + 0.001; f += 0.5){
+      var x = (f - RANGE_MIN) / (RANGE_MAX - RANGE_MIN) * w;
+      var big = Math.abs(f - Math.round(f)) < 0.01;
+      g.beginPath();
+      g.moveTo(x, 0); g.lineTo(x, big ? 16 : 9);
+      g.stroke();
+      if (big) g.fillText(Math.round(f), x, 30);
+    }
+    stations.forEach(function(s){
+      var x = (s.freq - RANGE_MIN) / (RANGE_MAX - RANGE_MIN) * w;
+      g.strokeStyle = '#ff3b2c';
+      g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 12); g.stroke();
+      g.fillStyle = '#ff3b2c';
+      g.fillText('◦', x, 26);
+    });
+  }
+  window.addEventListener('resize', drawTicks);
+
+  // ---------- КРУТИЛКА ----------
+  var knob = document.getElementById('knob');
+  var dragging = false, lastY = 0, knobAngle = 0;
+  knob.addEventListener('mousedown', function(e){ dragging = true; lastY = e.clientY; });
+  window.addEventListener('mousemove', function(e){
+    if (!dragging) return;
+    var dy = lastY - e.clientY;
+    lastY = e.clientY;
+    tuned = Math.min(RANGE_MAX, Math.max(RANGE_MIN, tuned + dy * 0.01));
+    knobAngle += dy * 1.2;
+    knob.style.transform = 'rotate(' + knobAngle + 'deg)';
+  });
+  window.addEventListener('mouseup', function(){ dragging = false; });
+  window.addEventListener('keydown', function(e){
+    if (!powered || document.activeElement === direct) return;
+    if (e.key === 'ArrowLeft')  tuned = Math.max(RANGE_MIN, tuned - 0.01);
+    if (e.key === 'ArrowRight') tuned = Math.min(RANGE_MAX, tuned + 0.01);
+  });
+
+  // прямой ввод частоты
+  direct.addEventListener('keydown', function(e){
+    if (e.key !== 'Enter') return;
+    var v = parseFloat(direct.value.replace(',', '.'));
+    if (isNaN(v)){
+      setStatus('НЕВЕРНАЯ ЧАСТОТА', true);
+      return;
+    }
+    tuned = Math.min(RANGE_MAX, Math.max(RANGE_MIN, v));
+    direct.value = '';
+    direct.blur();
+  });
+
+  // ---------- ПИТАНИЕ ----------
+  document.getElementById('power').addEventListener('click', function(){
+    powered = !powered;
+    led.classList.toggle('on', powered);
+    if (powered){
+      if (!ctx) initAudio();
+      ctx.resume();
+      setStatus('ПОИСК СИГНАЛА...');
+      update();
+    } else {
+      if (ctx) ctx.suspend();
+      stations.forEach(function(s){ s.el.pause(); });
+      freqEl.textContent = '--.--';
+      setStatus('ПИТАНИЕ ОТКЛЮЧЕНО');
+    }
+  });
+
+  // ---------- КРИПОВЫЕ СОБЫТИЯ ----------
+  var whispers = [
+    'ТЫ СЛЫШИШЬ ЭТО?',
+    'ОНО ЗАПИСАЛО ТЕБЯ',
+    'НЕ ОБОРАЧИВАЙСЯ',
+    'ЭФИР НЕ ПУСТ',
+    'КТО-ТО СЛУШАЕТ ВМЕСТЕ С ТОБОЙ',
+    'ПРОВЕРЬТЕ ЗАДНЮЮ ДВЕРЬ',
+    'СИГНАЛ ИДЁТ ИЗНУТРИ ДОМА'
+  ];
+  function whisper(){
+    if (!powered) return;
+    if (Math.random() < 0.35){
+      var r = Math.random();
+      if (r < 0.4){
+        // короткая вспышка текста
+        setStatus(whispers[Math.floor(Math.random() * whispers.length)], true);
+        setTimeout(function(){}, 2500);
+      } else if (r < 0.7){
+        document.body.classList.add('flick');
+        setTimeout(function(){ document.body.classList.remove('flick'); }, 400);
+      }
+      // полный оверлей — редко
+      if (Math.random() < 0.06){
+        overlayText.textContent = whispers[Math.floor(Math.random() * whispers.length)];
+        overlay.style.display = 'flex';
+        setTimeout(function(){ overlay.style.display = 'none'; }, 700);
+      }
+    }
+    setTimeout(whisper, 15000 + Math.random() * 30000);
+  }
+  setTimeout(whisper, 20000);
+
+  drawTicks();
+  freqEl.textContent = fmt(tuned);
+})();
+</script>
+</body>
+</html>
