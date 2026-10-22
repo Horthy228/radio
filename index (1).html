@@ -152,7 +152,7 @@
 
 <div id="radio">
   <div class="brand">
-    <span>УКВ-ПРИЁМНИК «ВЕГА-304» · сер. 1978 · зав. № 0447</span>
+    <span>УКВ-ПРИЁМНИК «3МО-Л53» · сер. 2009 · зав. № 1247</span>
     <span class="led" id="led"></span>
   </div>
 
@@ -318,7 +318,7 @@
     } else if (currentTarget && n.dist < TOLERANCE){
       setStatus('ПОЧТИ НАСТРОЕНО...');
     } else if (n.dead < 0.05){
-      setStatus('ТУТ НИЧЕГО НЕТ. ОТОЙДИТЕ ОТ ОКНА.', true);
+      setStatus('???', true);
     } else {
       setStatus('НЕТ СИГНАЛА');
     }
@@ -364,13 +364,6 @@
       g.stroke();
       if (big) g.fillText(Math.round(f), x, 30);
     }
-    stations.forEach(function(s){
-      var x = (s.freq - RANGE_MIN) / (RANGE_MAX - RANGE_MIN) * w;
-      g.strokeStyle = '#ff3b2c';
-      g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 12); g.stroke();
-      g.fillStyle = '#ff3b2c';
-      g.fillText('◦', x, 26);
-    });
   }
   window.addEventListener('resize', drawTicks);
 
@@ -433,12 +426,12 @@
   // ---------- КРИПОВЫЕ СОБЫТИЯ ----------
   var whispers = [
     'ТЫ СЛЫШИШЬ ЭТО?',
-    'ОНО ЗАПИСАЛО ТЕБЯ',
-    'НЕ ОБОРАЧИВАЙСЯ',
-    'ЭФИР НЕ ПУСТ',
-    'КТО-ТО СЛУШАЕТ ВМЕСТЕ С ТОБОЙ',
-    'ПРОВЕРЬТЕ ЗАДНЮЮ ДВЕРЬ',
-    'СИГНАЛ ИДЁТ ИЗНУТРИ ДОМА'
+    '67',
+    '12.47',
+    '04.18',
+    '????',
+    '. . .',
+    'НЕТ СИГНАЛА'
   ];
   function whisper(){
     if (!powered) return;
